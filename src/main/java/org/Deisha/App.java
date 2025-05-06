@@ -41,38 +41,58 @@ public class App {
 
         //HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
-        client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                .thenAccept(response -> {
-                    System.out.println("Status Code: " + response.statusCode());
-                    System.out.println("Headers: " + response.headers());
-                    System.out.println("Body: " + response.body());
-                })
-                .exceptionally(e -> { // Catch Exception
-                    e.printStackTrace(); // Robust Logging
-                    return null;
-                });
-
-
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode jsonNode = mapper.readTree()
-
         try{
-            /*
-            "id",
-            "type",
-            "actor",
-            "repo",
-            "payload",
-            "public",
-            "created_at"
-            */
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            //System.out.println("Status Code: " + response.statusCode());
+            //System.out.println("Headers: " + response.headers());
+            //System.out.println("Body: " + response.body());
+            if (response.statusCode() == 200){
+                String responseBody = response.body();
+                ObjectMapper mapper = new ObjectMapper();
+                try{
+                    JsonNode events = mapper.readTree(responseBody);
 
-        }
-        catch(JsonProcessingException e){
+                    if (!events.isArray() || events.isEmpty()){
+                        System.out.println("No recent activity found.");
+                        return;
+                    }
 
+
+                    for(JsonNode element: events){
+                        String type = element.get("type").asText();
+                        String repoName = element.get("repo").get("name").asText();
+
+                        switch (type){
+                            case "PushEvent":
+                                System.out.println("Pushed to "+ repoName);
+                                break;
+                            case "WatchEvent":
+                                System.out.println("Starred "+ repoName);
+                                break;
+                            case "CreateEvent":
+                                System.out.println("Created "+ repoName);
+                                break;
+                            case "IssuesEvent":
+                                System.out.println("Opened an issue in "+ repoName);
+                                break;
+                            case "DeleteEvent":
+                                System.out.println("Deleted "+ repoName);
+                                break;
+                            default:
+                                System.out.println("Performed " + type + " on " + repoName );
+                                break;
+                        }
+                    }
+                }
+                catch (JsonProcessingException e){
+                    System.err.println("Error parsing Json: " + e.getMessage());
+                }
+            }
+            else System.out.println("Request failed with status code: "+response.statusCode());
+
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
         }
-    Thread.sleep(5000);
     }
-
 }
 
